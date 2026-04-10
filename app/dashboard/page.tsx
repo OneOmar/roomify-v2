@@ -9,7 +9,9 @@ export default async function DashboardPage() {
         Welcome{user?.firstName ? `, ${user.firstName}` : ""}
       </h1>
       <p className="text-muted-foreground text-sm">
-        You are signed in. This area is only available to authenticated users.
+        {user
+          ? "You are signed in. This area is only available to authenticated users."
+          : "We couldn't verify your session. Please refresh or sign in again."}
       </p>
     </div>
   );
