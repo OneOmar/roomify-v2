@@ -98,7 +98,7 @@ export function parseCreateProjectBody(body: unknown): ParseCreateProjectResult 
     if (typeof outputRaw !== "string") {
       return {
         ok: false,
-        message: "output_url must be a string or omitted.",
+        message: "output_url must be a string, null, or omitted.",
         field: "output_url",
       };
     }
