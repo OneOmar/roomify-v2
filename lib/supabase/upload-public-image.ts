@@ -2,6 +2,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 const IMAGE_TYPE = /^image\//;
 
+/** Maximum image size for public uploads (10 MiB). */
+export const MAX_PUBLIC_IMAGE_SIZE = 10 * 1024 * 1024;
+
 function fileExtension(file: File): string {
   const mime = file.type;
   const fromMime: Record<string, string> = {
@@ -27,6 +30,7 @@ function objectPath(file: File, folder?: string): string {
 /**
  * Uploads an image to a Supabase Storage bucket and returns its public URL.
  * The bucket must be public (or use a signed URL flow elsewhere).
+ * Rejects files larger than {@link MAX_PUBLIC_IMAGE_SIZE}.
  */
 export async function uploadPublicImage(
   supabase: SupabaseClient,
@@ -36,6 +40,10 @@ export async function uploadPublicImage(
 ): Promise<string> {
   if (!IMAGE_TYPE.test(file.type)) {
     throw new Error("Only image files are allowed.");
+  }
+
+  if (file.size > MAX_PUBLIC_IMAGE_SIZE) {
+    throw new Error("File exceeds maximum allowed size.");
   }
 
   const path = objectPath(file, options?.folder);
