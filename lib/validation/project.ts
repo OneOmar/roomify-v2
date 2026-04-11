@@ -1,5 +1,8 @@
 const MAX_URL_LENGTH = 2048;
 
+/** Supabase public bucket object URLs use this path prefix. */
+const PUBLIC_STORAGE_OBJECT_PREFIX = "/storage/v1/object/public/";
+
 function isAllowedAbsoluteUrl(value: string): boolean {
   try {
     const u = new URL(value);
@@ -12,6 +15,33 @@ function isAllowedAbsoluteUrl(value: string): boolean {
       return true;
     }
     return false;
+  } catch {
+    return false;
+  }
+}
+
+function trustedSupabaseOrigin(): string | null {
+  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (!raw) return null;
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * True when the URL is a public object URL on this project's Supabase instance
+ * (same origin as NEXT_PUBLIC_SUPABASE_URL and standard Storage path).
+ */
+function isTrustedProjectStorageUrl(value: string): boolean {
+  if (!isAllowedAbsoluteUrl(value)) return false;
+  const origin = trustedSupabaseOrigin();
+  if (!origin) return false;
+  try {
+    const u = new URL(value);
+    if (u.origin !== origin) return false;
+    return u.pathname.startsWith(PUBLIC_STORAGE_OBJECT_PREFIX);
   } catch {
     return false;
   }
@@ -53,11 +83,11 @@ export function parseCreateProjectBody(body: unknown): ParseCreateProjectResult 
       field: "input_url",
     };
   }
-  if (!isAllowedAbsoluteUrl(inputUrl)) {
+  if (!isTrustedProjectStorageUrl(inputUrl)) {
     return {
       ok: false,
       message:
-        "input_url must be a valid http(s) URL (https in production; localhost allowed for dev).",
+        "input_url must be a public Supabase Storage URL for this project (not an arbitrary https link).",
       field: "input_url",
     };
   }
@@ -75,11 +105,11 @@ export function parseCreateProjectBody(body: unknown): ParseCreateProjectResult 
     const trimmed = outputRaw.trim();
     if (trimmed === "") {
       outputUrl = null;
-    } else if (!isAllowedAbsoluteUrl(trimmed)) {
+    } else if (!isTrustedProjectStorageUrl(trimmed)) {
       return {
         ok: false,
         message:
-          "output_url must be a valid http(s) URL when provided (https in production; localhost allowed for dev).",
+          "output_url must be a public Supabase Storage URL for this project when provided.",
         field: "output_url",
       };
     } else {
