@@ -1,3 +1,4 @@
+import { auth } from "@clerk/nextjs/server";
 import { createImageGenerationProvider } from "@/lib/ai/image-generation";
 import { parseGenerateBody } from "@/lib/validation/generate";
 import { NextResponse } from "next/server";
@@ -6,10 +7,16 @@ export const runtime = "nodejs";
 
 /**
  * POST /api/generate
+ * Requires a signed-in user (Clerk). Same auth pattern as POST /api/projects.
  * Body: { imageUrl: string }
  * Response: { generatedImageUrl: string }
  */
 export async function POST(request: Request) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();
