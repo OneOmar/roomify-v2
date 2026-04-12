@@ -55,7 +55,21 @@ export async function uploadPublicImage(
   });
 
   if (error) {
-    throw new Error(error.message);
+    const raw = error.message ?? "Upload failed.";
+    const code =
+      typeof (error as { statusCode?: string }).statusCode === "string"
+        ? (error as { statusCode: string }).statusCode
+        : undefined;
+    const isBucketMissing =
+      raw.includes("Bucket not found") ||
+      (code === "404" && /bucket/i.test(raw));
+
+    if (isBucketMissing) {
+      throw new Error(
+        `Storage bucket "${bucket}" was not found. In the Supabase Dashboard open Storage → New bucket, create a bucket with this exact id (or rename your env to match an existing bucket). For public read URLs, enable "Public bucket". Set NEXT_PUBLIC_SUPABASE_UPLOAD_BUCKET in .env.local if you use a different name.`
+      );
+    }
+    throw new Error(raw);
   }
 
   const { data } = supabase.storage.from(bucket).getPublicUrl(path);

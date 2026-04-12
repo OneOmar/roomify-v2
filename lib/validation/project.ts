@@ -1,3 +1,5 @@
+import { isAllowedRemoteImageUrl } from "@/lib/validation/generate";
+
 const MAX_URL_LENGTH = 2048;
 
 /** Supabase public bucket object URLs use this path prefix. */
@@ -118,4 +120,59 @@ export function parseCreateProjectBody(body: unknown): ParseCreateProjectResult 
   }
 
   return { ok: true, value: { inputUrl, outputUrl } };
+}
+
+export type PatchProjectOutputPayload = {
+  outputUrl: string;
+};
+
+export type ParsePatchProjectOutputResult =
+  | { ok: true; value: PatchProjectOutputPayload }
+  | { ok: false; message: string; field?: string };
+
+/**
+ * Validates JSON body for PATCH /api/projects/:id (snake_case `output_url`).
+ * Uses the same URL rules as POST /api/generate so AI results can be persisted as returned.
+ */
+export function parsePatchProjectOutputBody(
+  body: unknown
+): ParsePatchProjectOutputResult {
+  if (body === null || typeof body !== "object" || Array.isArray(body)) {
+    return { ok: false, message: "Request body must be a JSON object." };
+  }
+
+  const record = body as Record<string, unknown>;
+  const raw = record.output_url;
+  if (typeof raw !== "string") {
+    return {
+      ok: false,
+      message: "output_url is required and must be a string.",
+      field: "output_url",
+    };
+  }
+  const outputUrl = raw.trim();
+  if (!outputUrl) {
+    return {
+      ok: false,
+      message: "output_url must not be empty.",
+      field: "output_url",
+    };
+  }
+  if (outputUrl.length > MAX_URL_LENGTH) {
+    return {
+      ok: false,
+      message: "output_url is too long.",
+      field: "output_url",
+    };
+  }
+  if (!isAllowedRemoteImageUrl(outputUrl)) {
+    return {
+      ok: false,
+      message:
+        "output_url must be an absolute https URL (http on localhost is allowed only outside production).",
+      field: "output_url",
+    };
+  }
+
+  return { ok: true, value: { outputUrl } };
 }
