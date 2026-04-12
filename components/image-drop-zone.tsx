@@ -1,7 +1,5 @@
 "use client";
 
-import { createClient } from "@/lib/supabase/client";
-import { uploadPublicImage } from "@/lib/supabase/upload-public-image";
 import { cn } from "@/lib/utils";
 import { ImageUp, Loader2 } from "lucide-react";
 import {
@@ -14,12 +12,12 @@ import {
 } from "react";
 
 export type ImageDropZoneProps = {
-  /** Supabase Storage bucket id (bucket should be public for the returned URL to work). */
-  bucket: string;
-  /** Optional path prefix inside the bucket, e.g. `avatars`. */
+  /** Path prefix inside the bucket (server uses NEXT_PUBLIC_SUPABASE_UPLOAD_BUCKET). */
   folder?: string;
-  /** Called with the public URL after a successful upload. */
-  onUploadComplete: (publicUrl: string) => void;
+  /** Upload endpoint (default POST /api/upload, Clerk + service role). */
+  uploadUrl?: string;
+  /** Called with the public URL after a successful upload. If it returns a Promise, it is awaited before clearing the uploading state. */
+  onUploadComplete: (publicUrl: string) => void | Promise<void>;
   onError?: (error: Error) => void;
   className?: string;
   disabled?: boolean;
@@ -35,9 +33,34 @@ function firstImageFile(list: FileList | null): File | null {
   return null;
 }
 
+async function uploadImageViaApi(
+  file: File,
+  folder: string | undefined,
+  uploadUrl: string
+): Promise<string> {
+  const body = new FormData();
+  body.append("file", file);
+  if (folder) body.append("folder", folder);
+
+  const res = await fetch(uploadUrl, { method: "POST", body });
+  const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+
+  if (!res.ok) {
+    throw new Error(
+      typeof data.error === "string" && data.error
+        ? data.error
+        : "Upload failed."
+    );
+  }
+  if (typeof data.url !== "string" || !data.url) {
+    throw new Error("Upload succeeded but no URL was returned.");
+  }
+  return data.url;
+}
+
 export function ImageDropZone({
-  bucket,
   folder,
+  uploadUrl = "/api/upload",
   onUploadComplete,
   onError,
   className,
@@ -53,9 +76,8 @@ export function ImageDropZone({
     async (file: File) => {
       setIsUploading(true);
       try {
-        const supabase = createClient();
-        const url = await uploadPublicImage(supabase, bucket, file, { folder });
-        onUploadComplete(url);
+        const url = await uploadImageViaApi(file, folder, uploadUrl);
+        await Promise.resolve(onUploadComplete(url));
       } catch (e) {
         const err = e instanceof Error ? e : new Error("Upload failed.");
         onError?.(err);
@@ -63,7 +85,7 @@ export function ImageDropZone({
         setIsUploading(false);
       }
     },
-    [bucket, folder, onUploadComplete, onError]
+    [folder, uploadUrl, onUploadComplete, onError]
   );
 
   const handleFile = useCallback(
@@ -166,7 +188,7 @@ export function ImageDropZone({
           <ImageUp className="size-10 text-muted-foreground" aria-hidden />
         )}
         <p className="text-sm font-medium text-foreground">
-          {isUploading ? "Uploading…" : "Drop an image here, or click to choose"}
+          {isUploading ? "Working…" : "Drop an image here, or click to choose"}
         </p>
         <p className="text-xs text-muted-foreground">One image at a time</p>
       </div>

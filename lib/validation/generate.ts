@@ -1,6 +1,7 @@
 const MAX_URL_LENGTH = 2048;
 
-function isAllowedAbsoluteUrl(value: string): boolean {
+/** Same rules as POST /api/generate `imageUrl` — use when persisting that URL (e.g. project output). */
+export function isAllowedRemoteImageUrl(value: string): boolean {
   try {
     const u = new URL(value);
     if (value.length > MAX_URL_LENGTH) return false;
@@ -56,7 +57,7 @@ export function parseGenerateBody(body: unknown): ParseGenerateBodyResult {
     };
   }
 
-  if (!isAllowedAbsoluteUrl(imageUrl)) {
+  if (!isAllowedRemoteImageUrl(imageUrl)) {
     return {
       ok: false,
       message:

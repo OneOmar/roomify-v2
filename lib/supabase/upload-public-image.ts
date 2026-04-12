@@ -5,6 +5,9 @@ const IMAGE_TYPE = /^image\//;
 /** Maximum image size for public uploads (10 MiB). */
 export const MAX_PUBLIC_IMAGE_SIZE = 10 * 1024 * 1024;
 
+/** Max multipart request body before parsing (file limit + boundary / field overhead). */
+export const MAX_MULTIPART_UPLOAD_BYTES = MAX_PUBLIC_IMAGE_SIZE + 512 * 1024;
+
 function fileExtension(file: File): string {
   const mime = file.type;
   const fromMime: Record<string, string> = {
@@ -55,7 +58,21 @@ export async function uploadPublicImage(
   });
 
   if (error) {
-    throw new Error(error.message);
+    const raw = error.message ?? "Upload failed.";
+    const code =
+      typeof (error as { statusCode?: string }).statusCode === "string"
+        ? (error as { statusCode: string }).statusCode
+        : undefined;
+    const isBucketMissing =
+      raw.includes("Bucket not found") ||
+      (code === "404" && /bucket/i.test(raw));
+
+    if (isBucketMissing) {
+      throw new Error(
+        `Storage bucket "${bucket}" was not found. In the Supabase Dashboard open Storage → New bucket, create a bucket with this exact id (or rename your env to match an existing bucket). For public read URLs, enable "Public bucket". Set NEXT_PUBLIC_SUPABASE_UPLOAD_BUCKET in .env.local if you use a different name.`
+      );
+    }
+    throw new Error(raw);
   }
 
   const { data } = supabase.storage.from(bucket).getPublicUrl(path);
