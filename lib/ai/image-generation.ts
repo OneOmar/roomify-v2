@@ -31,6 +31,9 @@ export function createImageGenerationProvider(): ImageGenerationProvider {
     case "fake":
       return new FakeImageGenerationProvider();
     default:
+      if (process.env.NODE_ENV === "production") {
+        throw new Error(`[ai] Unknown AI_IMAGE_PROVIDER "${mode}".`);
+      }
       console.warn(
         `[ai] Unknown AI_IMAGE_PROVIDER "${mode}", using fake provider.`
       );
