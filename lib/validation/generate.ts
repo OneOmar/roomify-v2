@@ -5,9 +5,12 @@ function isAllowedAbsoluteUrl(value: string): boolean {
     const u = new URL(value);
     if (value.length > MAX_URL_LENGTH) return false;
     if (u.protocol === "https:") return true;
+    const isLocalHost =
+      u.hostname === "localhost" || u.hostname === "127.0.0.1";
     if (
+      process.env.NODE_ENV !== "production" &&
       u.protocol === "http:" &&
-      (u.hostname === "localhost" || u.hostname === "127.0.0.1")
+      isLocalHost
     ) {
       return true;
     }
@@ -57,7 +60,7 @@ export function parseGenerateBody(body: unknown): ParseGenerateBodyResult {
     return {
       ok: false,
       message:
-        "imageUrl must be an absolute http(s) URL (https, or http on localhost only).",
+        "imageUrl must be an absolute https URL (http on localhost is allowed only outside production).",
       field: "imageUrl",
     };
   }
