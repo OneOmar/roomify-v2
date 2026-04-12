@@ -5,6 +5,9 @@ const IMAGE_TYPE = /^image\//;
 /** Maximum image size for public uploads (10 MiB). */
 export const MAX_PUBLIC_IMAGE_SIZE = 10 * 1024 * 1024;
 
+/** Max multipart request body before parsing (file limit + boundary / field overhead). */
+export const MAX_MULTIPART_UPLOAD_BYTES = MAX_PUBLIC_IMAGE_SIZE + 512 * 1024;
+
 function fileExtension(file: File): string {
   const mime = file.type;
   const fromMime: Record<string, string> = {

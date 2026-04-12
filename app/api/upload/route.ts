@@ -1,5 +1,9 @@
 import { auth } from "@clerk/nextjs/server";
-import { uploadPublicImage } from "@/lib/supabase/upload-public-image";
+import {
+  MAX_MULTIPART_UPLOAD_BYTES,
+  MAX_PUBLIC_IMAGE_SIZE,
+  uploadPublicImage,
+} from "@/lib/supabase/upload-public-image";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { NextResponse } from "next/server";
 
@@ -22,6 +26,26 @@ export async function POST(request: Request) {
       { error: "Expected multipart/form-data with a file field." },
       { status: 400 }
     );
+  }
+
+  const contentLength = request.headers.get("content-length");
+  if (contentLength !== null) {
+    const bytes = Number.parseInt(contentLength, 10);
+    if (!Number.isFinite(bytes) || bytes < 0) {
+      return NextResponse.json(
+        { error: "Invalid Content-Length header." },
+        { status: 400 }
+      );
+    }
+    if (bytes > MAX_MULTIPART_UPLOAD_BYTES) {
+      const maxMiB = MAX_PUBLIC_IMAGE_SIZE / (1024 * 1024);
+      return NextResponse.json(
+        {
+          error: `Payload too large. Maximum image size is ${maxMiB} MiB.`,
+        },
+        { status: 413 }
+      );
+    }
   }
 
   let formData: FormData;
