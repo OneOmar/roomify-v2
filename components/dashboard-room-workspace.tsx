@@ -3,6 +3,7 @@
 import { ImageDropZone } from "@/components/image-drop-zone";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 
 type ProjectPayload = {
@@ -40,6 +41,7 @@ export type DashboardRoomWorkspaceProps = {
 export function DashboardRoomWorkspace({
   uploadFolder = "inputs",
 }: DashboardRoomWorkspaceProps) {
+  const router = useRouter();
   const [sessionBusy, setSessionBusy] = useState(false);
   const [stepLabel, setStepLabel] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +95,7 @@ export function DashboardRoomWorkspace({
 
       setOutputPreviewUrl(generatedImageUrl);
       setLastProjectId(projectId);
+      router.refresh();
     } catch (e) {
       const message =
         e instanceof Error ? e.message : "Something went wrong. Please try again.";
@@ -101,7 +104,7 @@ export function DashboardRoomWorkspace({
     } finally {
       setStepLabel(null);
     }
-  }, []);
+  }, [router]);
 
   const statusLine =
     sessionBusy && stepLabel ? stepLabel : sessionBusy ? "Uploading…" : null;
