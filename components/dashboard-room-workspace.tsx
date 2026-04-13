@@ -1,6 +1,8 @@
 "use client";
 
 import { ImageDropZone } from "@/components/image-drop-zone";
+import Link from "next/link";
+import { Loader2 } from "lucide-react";
 import { useCallback, useState } from "react";
 
 type ProjectPayload = {
@@ -19,6 +21,18 @@ async function readErrorMessage(response: Response): Promise<string> {
   return "Something went wrong. Please try again.";
 }
 
+function GeneratedPreviewSkeleton() {
+  return (
+    <div
+      role="status"
+      aria-label="Generating preview"
+      className="w-full aspect-video rounded-lg border border-border bg-muted/50"
+    >
+      <div className="h-full w-full animate-pulse rounded-[calc(var(--radius-lg)-2px)] bg-muted" />
+    </div>
+  );
+}
+
 export type DashboardRoomWorkspaceProps = {
   uploadFolder?: string;
 };
@@ -26,18 +40,21 @@ export type DashboardRoomWorkspaceProps = {
 export function DashboardRoomWorkspace({
   uploadFolder = "inputs",
 }: DashboardRoomWorkspaceProps) {
-  const [pipelineBusy, setPipelineBusy] = useState(false);
+  const [sessionBusy, setSessionBusy] = useState(false);
+  const [stepLabel, setStepLabel] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [inputPreviewUrl, setInputPreviewUrl] = useState<string | null>(null);
   const [outputPreviewUrl, setOutputPreviewUrl] = useState<string | null>(null);
+  const [lastProjectId, setLastProjectId] = useState<string | null>(null);
 
   const onUploadComplete = useCallback(async (inputUrl: string) => {
     setError(null);
     setOutputPreviewUrl(null);
+    setLastProjectId(null);
     setInputPreviewUrl(inputUrl);
-    setPipelineBusy(true);
 
     try {
+      setStepLabel("Saving project…");
       const createRes = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -52,6 +69,7 @@ export function DashboardRoomWorkspace({
       const createJson = (await createRes.json()) as { project: ProjectPayload };
       const projectId = createJson.project.id;
 
+      setStepLabel("Generating your room…");
       const genRes = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -63,6 +81,7 @@ export function DashboardRoomWorkspace({
       const genJson = (await genRes.json()) as { generatedImageUrl: string };
       const generatedImageUrl = genJson.generatedImageUrl;
 
+      setStepLabel("Saving result…");
       const patchRes = await fetch(`/api/projects/${projectId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -73,15 +92,21 @@ export function DashboardRoomWorkspace({
       }
 
       setOutputPreviewUrl(generatedImageUrl);
+      setLastProjectId(projectId);
     } catch (e) {
       const message =
         e instanceof Error ? e.message : "Something went wrong. Please try again.";
       setError(message);
       setOutputPreviewUrl(null);
     } finally {
-      setPipelineBusy(false);
+      setStepLabel(null);
     }
   }, []);
+
+  const statusLine =
+    sessionBusy && stepLabel ? stepLabel : sessionBusy ? "Uploading…" : null;
+
+  const showPreviewRow = Boolean(inputPreviewUrl || outputPreviewUrl);
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -94,49 +119,104 @@ export function DashboardRoomWorkspace({
         </p>
       </div>
 
-      <ImageDropZone
-        folder={uploadFolder}
-        onUploadComplete={onUploadComplete}
-        onError={(err) => setError(err.message)}
-        disabled={pipelineBusy}
-      />
+      <div className="space-y-3">
+        <ImageDropZone
+          folder={uploadFolder}
+          onUploadComplete={onUploadComplete}
+          onError={(err) => {
+            setError(err.message);
+            setStepLabel(null);
+          }}
+          onBusyChange={setSessionBusy}
+        />
+        {statusLine ? (
+          <p
+            role="status"
+            aria-live="polite"
+            className="flex items-center gap-2 text-sm text-muted-foreground"
+          >
+            <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+            <span>{statusLine}</span>
+          </p>
+        ) : null}
+      </div>
 
       {error ? (
         <div
           className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
           role="alert"
+          aria-live="assertive"
         >
-          {error}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+            <p className="min-w-0 flex-1">{error}</p>
+            <button
+              type="button"
+              onClick={() => setError(null)}
+              className="shrink-0 rounded-md border border-destructive/40 bg-background px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Dismiss
+            </button>
+          </div>
         </div>
       ) : null}
 
-      {inputPreviewUrl || outputPreviewUrl ? (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {inputPreviewUrl ? (
-            <figure className="space-y-2">
-              <figcaption className="text-xs font-medium text-muted-foreground">
-                Your upload
-              </figcaption>
-              {/* eslint-disable-next-line @next/next/no-img-element -- remote Supabase / AI URLs */}
-              <img
-                src={inputPreviewUrl}
-                alt="Uploaded room"
-                className="w-full rounded-lg border border-border object-cover aspect-video bg-muted"
-              />
-            </figure>
-          ) : null}
-          {outputPreviewUrl ? (
-            <figure className="space-y-2">
-              <figcaption className="text-xs font-medium text-muted-foreground">
-                Generated
-              </figcaption>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={outputPreviewUrl}
-                alt="Generated room"
-                className="w-full rounded-lg border border-border object-cover aspect-video bg-muted"
-              />
-            </figure>
+      {showPreviewRow ? (
+        <div className="space-y-3">
+          <div className="grid gap-4 sm:grid-cols-2">
+            {inputPreviewUrl ? (
+              <figure className="space-y-2 min-w-0">
+                <figcaption className="text-xs font-medium text-muted-foreground">
+                  Your upload
+                </figcaption>
+                {/* eslint-disable-next-line @next/next/no-img-element -- remote Supabase / AI URLs */}
+                <img
+                  src={inputPreviewUrl}
+                  alt="Uploaded room"
+                  className="w-full rounded-lg border border-border object-cover aspect-video bg-muted"
+                />
+              </figure>
+            ) : null}
+
+            {outputPreviewUrl ? (
+              <figure className="space-y-2 min-w-0">
+                <figcaption className="text-xs font-medium text-muted-foreground">
+                  Generated
+                </figcaption>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={outputPreviewUrl}
+                  alt="Generated room"
+                  className="w-full rounded-lg border border-border object-cover aspect-video bg-muted"
+                />
+              </figure>
+            ) : inputPreviewUrl ? (
+              <figure className="space-y-2 min-w-0">
+                <figcaption className="text-xs font-medium text-muted-foreground">
+                  Generated
+                </figcaption>
+                {sessionBusy ? (
+                  <GeneratedPreviewSkeleton />
+                ) : error ? (
+                  <div className="flex aspect-video w-full items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 px-4 text-center text-sm text-muted-foreground">
+                    Preview unavailable.
+                  </div>
+                ) : (
+                  <div className="flex aspect-video w-full items-center justify-center rounded-lg border border-dashed border-border bg-muted/40 px-4 text-center text-sm text-muted-foreground">
+                    No render yet.
+                  </div>
+                )}
+              </figure>
+            ) : null}
+          </div>
+          {lastProjectId && outputPreviewUrl ? (
+            <p className="text-sm">
+              <Link
+                href={`/dashboard/projects/${lastProjectId}`}
+                className="font-medium text-foreground underline-offset-4 hover:underline"
+              >
+                Open full comparison
+              </Link>
+            </p>
           ) : null}
         </div>
       ) : null}

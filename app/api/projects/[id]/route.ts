@@ -1,4 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
+import { fetchProjectForUser } from "@/lib/fetch-project-for-user";
 import { parsePatchProjectOutputBody } from "@/lib/validation/project";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { NextResponse } from "next/server";
@@ -12,6 +13,46 @@ type ProjectRow = {
   output_url: string | null;
   created_at: string;
 };
+
+/**
+ * GET /api/projects/:id
+ * Returns a project owned by the signed-in user.
+ */
+export async function GET(
+  _request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
+  const { id } = await context.params;
+  if (!id?.trim()) {
+    return NextResponse.json({ error: "Invalid project id." }, { status: 400 });
+  }
+
+  try {
+    const project = await fetchProjectForUser(id, userId);
+    if (!project) {
+      return NextResponse.json({ error: "Project not found." }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      project: {
+        id: project.id,
+        input_url: project.input_url,
+        output_url: project.output_url,
+        created_at: project.created_at,
+      },
+    });
+  } catch {
+    return NextResponse.json(
+      { error: "Could not load project." },
+      { status: 500 }
+    );
+  }
+}
 
 /**
  * PATCH /api/projects/:id
