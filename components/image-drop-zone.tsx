@@ -19,6 +19,8 @@ export type ImageDropZoneProps = {
   /** Called with the public URL after a successful upload. If it returns a Promise, it is awaited before clearing the uploading state. */
   onUploadComplete: (publicUrl: string) => void | Promise<void>;
   onError?: (error: Error) => void;
+  /** Fired when upload + awaited `onUploadComplete` starts or finishes (for parent loading UI). */
+  onBusyChange?: (busy: boolean) => void;
   className?: string;
   disabled?: boolean;
   accept?: string;
@@ -63,6 +65,7 @@ export function ImageDropZone({
   uploadUrl = "/api/upload",
   onUploadComplete,
   onError,
+  onBusyChange,
   className,
   disabled = false,
   accept = "image/*",
@@ -75,6 +78,7 @@ export function ImageDropZone({
   const runUpload = useCallback(
     async (file: File) => {
       setIsUploading(true);
+      onBusyChange?.(true);
       try {
         const url = await uploadImageViaApi(file, folder, uploadUrl);
         await Promise.resolve(onUploadComplete(url));
@@ -83,9 +87,10 @@ export function ImageDropZone({
         onError?.(err);
       } finally {
         setIsUploading(false);
+        onBusyChange?.(false);
       }
     },
-    [folder, uploadUrl, onUploadComplete, onError]
+    [folder, uploadUrl, onUploadComplete, onError, onBusyChange]
   );
 
   const handleFile = useCallback(
@@ -105,12 +110,16 @@ export function ImageDropZone({
     [handleFile]
   );
 
-  const onDragEnter = useCallback((e: DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragDepth.current += 1;
-    setIsDragging(true);
-  }, []);
+  const onDragEnter = useCallback(
+    (e: DragEvent) => {
+      if (disabled || isUploading) return;
+      e.preventDefault();
+      e.stopPropagation();
+      dragDepth.current += 1;
+      setIsDragging(true);
+    },
+    [disabled, isUploading]
+  );
 
   const onDragLeave = useCallback((e: DragEvent) => {
     e.preventDefault();
@@ -133,10 +142,11 @@ export function ImageDropZone({
       e.stopPropagation();
       dragDepth.current = 0;
       setIsDragging(false);
+      if (disabled || isUploading) return;
       const file = firstImageFile(e.dataTransfer.files);
       handleFile(file);
     },
-    [handleFile]
+    [disabled, isUploading, handleFile]
   );
 
   const openPicker = useCallback(() => {
@@ -151,7 +161,7 @@ export function ImageDropZone({
       className={cn(
         "relative rounded-lg border border-dashed border-border bg-muted/30 px-6 py-10 text-center transition-colors",
         isDragging && !busy && "border-primary bg-accent/40",
-        busy && "cursor-not-allowed opacity-60",
+        busy && "pointer-events-none cursor-not-allowed opacity-60",
         !busy && "cursor-pointer hover:border-muted-foreground/50 hover:bg-muted/50",
         className
       )}
@@ -161,6 +171,7 @@ export function ImageDropZone({
       onDrop={onDrop}
       onClick={openPicker}
       onKeyDown={(e: KeyboardEvent) => {
+        if (busy) return;
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           openPicker();
@@ -169,7 +180,7 @@ export function ImageDropZone({
       role="button"
       tabIndex={busy ? -1 : 0}
       aria-disabled={busy}
-      aria-busy={isUploading}
+      aria-busy={busy}
       aria-label="Upload image: drop a file or activate to choose"
     >
       <input
@@ -182,13 +193,17 @@ export function ImageDropZone({
         onChange={onInputChange}
       />
       <div className="flex flex-col items-center gap-2">
-        {isUploading ? (
+        {busy ? (
           <Loader2 className="size-10 text-muted-foreground animate-spin" aria-hidden />
         ) : (
           <ImageUp className="size-10 text-muted-foreground" aria-hidden />
         )}
         <p className="text-sm font-medium text-foreground">
-          {isUploading ? "Working…" : "Drop an image here, or click to choose"}
+          {busy
+            ? disabled && !isUploading
+              ? "Unavailable"
+              : "Please wait…"
+            : "Drop an image here, or click to choose"}
         </p>
         <p className="text-xs text-muted-foreground">One image at a time</p>
       </div>
