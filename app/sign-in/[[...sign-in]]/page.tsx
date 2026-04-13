@@ -2,7 +2,7 @@ import { SignIn } from "@clerk/nextjs";
 
 export default function SignInPage() {
   return (
-    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-background px-4 py-12 text-foreground">
+    <div className="relative flex min-h-dvh items-center justify-center overflow-x-hidden bg-background px-4 py-12 text-foreground">
       <div
         className="pointer-events-none absolute inset-0 opacity-50 dark:opacity-35"
         aria-hidden
