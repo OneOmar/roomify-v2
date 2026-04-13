@@ -159,10 +159,14 @@ export function ImageDropZone({
   return (
     <div
       className={cn(
-        "relative rounded-lg border border-dashed border-border bg-muted/30 px-6 py-10 text-center transition-colors",
-        isDragging && !busy && "border-primary bg-accent/40",
-        busy && "pointer-events-none cursor-not-allowed opacity-60",
-        !busy && "cursor-pointer hover:border-muted-foreground/50 hover:bg-muted/50",
+        "group relative rounded-xl border border-dashed border-border/90 bg-muted/25 px-6 py-12 text-center shadow-[var(--shadow-xs)] transition-[border-color,background-color,box-shadow,transform] duration-200 sm:px-8 sm:py-14",
+        isDragging &&
+          !busy &&
+          "scale-[1.01] border-primary/50 bg-primary/[0.06] shadow-[var(--shadow-md)] ring-2 ring-primary/20",
+        busy && "pointer-events-none cursor-not-allowed opacity-55",
+        !busy &&
+          !isDragging &&
+          "cursor-pointer hover:border-primary/35 hover:bg-muted/45 hover:shadow-[var(--shadow-sm)]",
         className
       )}
       onDragEnter={onDragEnter}
@@ -192,12 +196,20 @@ export function ImageDropZone({
         disabled={busy}
         onChange={onInputChange}
       />
-      <div className="flex flex-col items-center gap-2">
-        {busy ? (
-          <Loader2 className="size-10 text-muted-foreground animate-spin" aria-hidden />
-        ) : (
-          <ImageUp className="size-10 text-muted-foreground" aria-hidden />
-        )}
+      <div className="flex flex-col items-center gap-3">
+        <span
+          className={cn(
+            "flex size-14 items-center justify-center rounded-2xl bg-background/90 text-muted-foreground shadow-[var(--shadow-xs)] ring-1 ring-border/70 transition-[color,background-color,box-shadow] duration-200",
+            !busy && "group-hover:text-primary",
+            isDragging && !busy && "bg-primary/10 text-primary ring-primary/25"
+          )}
+        >
+          {busy ? (
+            <Loader2 className="size-7 animate-spin text-primary/90" aria-hidden />
+          ) : (
+            <ImageUp className="size-7" strokeWidth={1.5} aria-hidden />
+          )}
+        </span>
         <p className="text-sm font-medium text-foreground">
           {busy
             ? disabled && !isUploading
@@ -205,7 +217,7 @@ export function ImageDropZone({
               : "Please wait…"
             : "Drop an image here, or click to choose"}
         </p>
-        <p className="text-xs text-muted-foreground">One image at a time</p>
+        <p className="text-xs text-muted-foreground">One image at a time · JPG, PNG, WebP</p>
       </div>
     </div>
   );
