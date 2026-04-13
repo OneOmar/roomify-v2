@@ -13,6 +13,6 @@ export const clerkAppearance = {
     colorDanger: "var(--destructive)",
     borderRadius: "var(--radius)",
     fontFamily:
-      "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
+      "var(--font-app-sans), ui-sans-serif, system-ui, sans-serif",
   },
 } as const;
