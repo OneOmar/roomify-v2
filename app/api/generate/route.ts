@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { createImageGenerationProvider } from "@/lib/ai/image-generation";
+import { HuggingFaceInferenceError } from "@/lib/ai/huggingface-stable-diffusion";
 import { parseGenerateBody } from "@/lib/validation/generate";
 import { NextResponse } from "next/server";
 
@@ -43,6 +44,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ generatedImageUrl });
   } catch (e) {
     console.error("[api/generate] Image generation failed:", e);
+    if (e instanceof HuggingFaceInferenceError) {
+      let status = 502;
+      if (e.modelLoadingEstimateSeconds != null) {
+        status = 503;
+      } else if (
+        e.status != null &&
+        e.status >= 400 &&
+        e.status < 600
+      ) {
+        status = e.status;
+      }
+      const headers =
+        e.modelLoadingEstimateSeconds != null
+          ? {
+              RetryAfter: String(
+                Math.min(120, Math.ceil(e.modelLoadingEstimateSeconds))
+              ),
+            }
+          : undefined;
+      return NextResponse.json({ error: e.message }, { status, headers });
+    }
     return NextResponse.json(
       { error: "Image generation failed." },
       { status: 500 }
