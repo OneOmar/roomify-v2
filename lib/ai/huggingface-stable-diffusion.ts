@@ -1,7 +1,14 @@
 const DEFAULT_HF_MODEL_ID = "stabilityai/stable-diffusion-2-1";
 
-const BASE_ROOM_PROMPT = "Convert this 2D floor plan into a photorealistic top-down 3D architectural render. Realistic lighting, natural materials, ultra detailed, 4K."
-
+/**
+ * Stable Diffusion 2.1 truncates prompts after ~77 CLIP tokens, so we keep the
+ * server-side prompt short and front-load geometry constraints. Stylistic and
+ * negative directives are handled via `parameters.negative_prompt`.
+ */
+const BASE_ROOM_PROMPT =
+  "Photorealistic top-down orthographic 3D render of the input 2D floor plan. " +
+  "Preserve exact walls, rooms, doors, and windows. Extruded walls, glass windows, " +
+  "open doors per swing arcs. Natural daylight, realistic materials, soft shadows, 4K.";
 
 export class HuggingFaceInferenceError extends Error {
   readonly status: number | undefined;
@@ -104,7 +111,7 @@ export async function fetchStableDiffusion21Image(
           inputs: fullPrompt,
           parameters: {
             negative_prompt:
-              "ugly, blurry, low quality, distorted, watermark, text, logo, deformed furniture, cluttered",
+              "text, labels, numbers, annotations, watermark, logo, sketch, perspective, tilt, blur, distortion, low quality, extra rooms, extra furniture",
           },
         }),
       });
