@@ -1,42 +1,14 @@
 const DEFAULT_HF_MODEL_ID = "stabilityai/stable-diffusion-2-1";
 
-// const BASE_ROOM_PROMPT = "Convert this floor plan into a photorealistic top-down 3D architectural render. Realistic lighting, natural materials, ultra detailed, 4K."
-
+/**
+ * Stable Diffusion 2.1 truncates prompts after ~77 CLIP tokens, so we keep the
+ * server-side prompt short and front-load geometry constraints. Stylistic and
+ * negative directives are handled via `parameters.negative_prompt`.
+ */
 const BASE_ROOM_PROMPT =
-`TASK:
-Convert the input 2D floor plan into a photorealistic, orthographic top-down 3D architectural render.
-
-STRICT RULES:
-- Remove all text, labels, numbers, and annotations. Surfaces must be clean and continuous.
-- Preserve exact geometry: walls, rooms, doors, and windows must match the original layout precisely (no shifting or resizing).
-- Use a true top-down orthographic view (no perspective or tilt).
-- Do not add any elements that are not clearly indicated in the plan.
-
-STRUCTURE:
-- Walls: accurately extruded with consistent height and thickness.
-- Doors: aligned with the plan and shown open based on swing arcs.
-- Windows: converted into realistic glass elements based on plan lines.
-
-FURNITURE (only if explicitly indicated):
-- Bed → realistic bed with pillows
-- Sofa → modern sofa
-- Dining → table with chairs
-- Kitchen → counters, sink, stove
-- Bathroom → toilet, sink, shower or tub
-- Office → desk and chair
-- Outdoor → minimal seating
-- Utility → washer/dryer
-
-STYLE:
-- Photorealistic rendering
-- Bright natural daylight
-- Realistic materials (wood, tile, glass)
-- Clean walls, soft shadows, high detail (4K)
-
-NEGATIVE:
-- No text, no watermark, no logo
-- No blur, no distortion, no sketch style
-- No extra rooms or objects`
+  "Photorealistic top-down orthographic 3D render of the input 2D floor plan. " +
+  "Preserve exact walls, rooms, doors, and windows. Extruded walls, glass windows, " +
+  "open doors per swing arcs. Natural daylight, realistic materials, soft shadows, 4K.";
 
 export class HuggingFaceInferenceError extends Error {
   readonly status: number | undefined;
@@ -139,7 +111,7 @@ export async function fetchStableDiffusion21Image(
           inputs: fullPrompt,
           parameters: {
             negative_prompt:
-              "ugly, blurry, low quality, distorted, watermark, text, logo, deformed furniture, cluttered",
+              "text, labels, numbers, annotations, watermark, logo, sketch, perspective, tilt, blur, distortion, low quality, extra rooms, extra furniture",
           },
         }),
       });
